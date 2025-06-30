@@ -1,8 +1,8 @@
-# agent.ps1 — Agent léger HTTP sur port 8080
-
+# agent.ps1 — Agent HTTP local pour inventaire logiciel et déploiement
 $port = 8080
 $listener = New-Object System.Net.HttpListener
-$listener.Prefixes.Add("http://+:$port/")
+$prefix = "http://+:{0}/" -f $port
+$listener.Prefixes.Add($prefix)
 $listener.Start()
 Write-Output "Agent PowerShell actif sur le port $port"
 
@@ -21,22 +21,24 @@ while ($true) {
     }
 
     if ($url -eq "/inventory" -and $method -eq "GET") {
-        $softs = Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* |
-            Select-Object DisplayName, DisplayVersion |
+        $softs = Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* |
             Where-Object { $_.DisplayName } |
+            Select-Object DisplayName, DisplayVersion |
             ConvertTo-Json -Depth 3
         $buffer = [System.Text.Encoding]::UTF8.GetBytes($softs)
     }
     elseif ($url -eq "/deploy" -and $method -eq "POST") {
-        $reader = New-Object IO.StreamReader $request.InputStream
-        $body = $reader.ReadToEnd() | ConvertFrom-Json
+        $reader = New-Object IO.StreamReader $request.InputStream, [System.Text.Encoding]::UTF8
+        $bodyRaw = $reader.ReadToEnd()
+        $reader.Close()
+        $body = $bodyRaw | ConvertFrom-Json
         $cmd = $body.install_command
         Start-Process powershell -ArgumentList "-Command", $cmd -WindowStyle Hidden
-        $buffer = [System.Text.Encoding]::UTF8.GetBytes("{\"status\":\"installing\"}")
+        $buffer = [System.Text.Encoding]::UTF8.GetBytes('{"status":"installing"}')
     }
     else {
-        $buffer = [System.Text.Encoding]::UTF8.GetBytes("{\"error\":\"Not found\"}")
         $response.StatusCode = 404
+        $buffer = [System.Text.Encoding]::UTF8.GetBytes('{"error":"Not found"}')
     }
 
     $response.ContentLength64 = $buffer.Length
