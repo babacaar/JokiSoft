@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Inventaire & Déploiement</title>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    table, th, td { border: 1px solid #ddd; border-collapse: collapse; padding: 8px; }
+    th { background-color: #f0f0f0; }
+  </style>
+</head>
+<body>
+
+<h1>Agents disponibles</h1>
+<table id="agentsTable"></table>
+
+<h2>Inventaire logiciel</h2>
+<pre id="inventoryDisplay"></pre>
+
+<h2>Déploiement</h2>
+<form onsubmit="deploy(); return false;">
+  IP : <input type="text" id="deployIp" required>
+  Commande PowerShell : <input type="text" id="deployCmd" required>
+  <button type="submit">Déployer</button>
+</form>
+
+<h2>Logs serveur</h2>
+<pre id="logsDisplay"></pre>
+
+<script>
+  const backend = "http://localhost:5000"; // à adapter en prod
+
+  async function loadAgents() {
+    const res = await fetch(`${backend}/agents`);
+    const agents = await res.json();
+    const table = document.getElementById("agentsTable");
+    table.innerHTML = "<tr><th>Nom</th><th>IP</th><th>Actions</th></tr>";
+    agents.forEach(agent => {
+      const row = document.createElement("tr");
+      row.innerHTML = `<td>${agent.name}</td><td>${agent.ip}</td>
+        <td><button onclick="getInventory('${agent.ip}')">Voir inventaire</button></td>`;
+      table.appendChild(row);
+    });
+  }
+
+  async function getInventory(ip) {
+    const res = await fetch(`${backend}/inventory/${ip}`);
+    const data = await res.json();
+    document.getElementById("inventoryDisplay").textContent = JSON.stringify(data, null, 2);
+  }
+
+  async function deploy() {
+    const ip = document.getElementById("deployIp").value;
+    const cmd = document.getElementById("deployCmd").value;
+    const res = await fetch(`${backend}/deploy/${ip}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ install_command: cmd })
+    });
+    const result = await res.json();
+    alert("Résultat déploiement : " + JSON.stringify(result));
+  }
+
+  async function loadLogs() {
+    const res = await fetch(`${backend}/logs`);
+    const logs = await res.json();
+    document.getElementById("logsDisplay").textContent = JSON.stringify(logs, null, 2);
+  }
+
+  loadAgents();
+  loadLogs();
+</script>
+
+</body>
+</html>

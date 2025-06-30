@@ -1,0 +1,8 @@
+# Dockerfile.frontend — Apache avec HTML statique
+FROM httpd:2.4
+
+# Copier la configuration Apache custom
+COPY apache.conf /usr/local/apache2/conf/httpd.conf
+
+# Copier le contenu web
+COPY index.html /usr/local/apache2/htdocs/index.html
